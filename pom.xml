@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.tibor17.arquillian-extension-jacoco</groupId>
+    <artifactId>issue-25</artifactId>
+    <version>1.0</version>
+    <packaging>war</packaging>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.arquillian</groupId>
+                <artifactId>arquillian-universe</artifactId>
+                <version>1.1.13.5</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>7.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.arquillian.universe</groupId>
+            <artifactId>arquillian-junit</artifactId>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.arquillian.universe</groupId>
+            <artifactId>arquillian-chameleon</artifactId>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>org.jacoco.core</artifactId>
+            <version>0.7.9</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.arquillian.extension</groupId>
+            <artifactId>arquillian-jacoco</artifactId>
+            <version>1.0.0.Alpha9</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>${project.basedir}/src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <testResources>
+            <testResource>
+                <directory>${project.basedir}/src/test/resources</directory>
+                <filtering>true</filtering>
+            </testResource>
+        </testResources>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.12</version>
+                <executions>
+                    <execution>
+                        <id>lookup-unused-port</id>
+                        <!--
+                        must not be phase=pre-integration-test; otherwise surefire system property
+                        'managementPort' would not reference maven property value nothing but its name.
+                        -->
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>bsh-property</goal>
+                        </goals>
+                        <configuration>
+                            <properties>
+                                <property>wildfly.management.portOffset</property>
+                                <property>wildfly.management.port</property>
+                            </properties>
+                            <source>
+                                <![CDATA[
+                                int offset = 3;// don't use 0,1,2=> 8081=McAfee, 8082=H2 web port
+                                do {
+                                    try {
+                                        Socket s = new Socket();
+                                        s.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 9990 + offset));
+                                        s.close();
+                                        break;
+                                    } catch (BindException e) {
+                                        ++offset;
+                                    }
+                                } while (offset < 100);
+                                wildfly.management.portOffset = "" + offset;
+                                wildfly.management.port = "" + (9990 + offset);
+                                ]]>
+                            </source>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.7.9</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent-integration</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <goals>
+                            <goal>report-integration</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>2.20</version>
+                <executions>
+                    <execution>
+                        <id>it</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>integration-test</goal>
+                        </goals>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <web.xml>${project.build.directory}/${project.build.finalName}/WEB-INF/web.xml</web.xml>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>it-verify</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
